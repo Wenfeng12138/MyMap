@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:title="@string/root_title">
+
+    <PreferenceCategory android:title="@string/theme">
+
+        <CheckBoxPreference
+            android:key="checkbox_satellitemap"
+            android:title="@string/title_checkbox_nightmode" />
+
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/heatmap">
+        <SwitchPreference
+            android:key="switch_heatmap"
+            android:title="@string/title_check_heatmap"
+            android:summary="@string/heatsum">
+        </SwitchPreference>
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="地图图层">
+        <SwitchPreference
+            android:key="switch_mapcondition"
+            android:title="@string/title_check_lukuang">
+        </SwitchPreference>
+
+    </PreferenceCategory>
+
+</PreferenceScreen>
