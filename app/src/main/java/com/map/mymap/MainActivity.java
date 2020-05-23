@@ -10,6 +10,7 @@ import android.content.Intent;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Color;
+import android.location.LocationManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -25,15 +26,18 @@ import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.TimePicker;
 import android.widget.Toast;
 
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.fragment.app.FragmentTransaction;
 
 import com.amap.api.location.AMapLocation;
 import com.amap.api.location.AMapLocationClient;
@@ -61,10 +65,14 @@ import com.amap.api.services.help.InputtipsQuery;
 import com.amap.api.services.help.Tip;
 import com.amap.api.services.poisearch.PoiResult;
 import com.amap.api.services.poisearch.PoiSearch;
+import com.ashokvarma.bottomnavigation.BottomNavigationBar;
 import com.map.mymap.db.SQLdm;
 import com.map.mymap.overlay.PoiOverlay;
 import com.map.mymap.route.navActivity;
+import com.map.mymap.ui.BaseActivity;
 import com.map.mymap.ui.StatusBarUtil;
+import com.map.mymap.user.Login;
+import com.map.mymap.user.User;
 import com.map.mymap.util.AMapUtil;
 import com.map.mymap.util.ToastUtil;
 
@@ -75,14 +83,14 @@ import java.util.Arrays;
 import java.util.Calendar;
 import java.util.List;
 
-import static androidx.core.content.PermissionChecker.PERMISSION_GRANTED;
+import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 
-public class MainActivity extends Activity implements View.OnClickListener, AMapLocationListener,
+
+public class MainActivity extends BaseActivity implements View.OnClickListener, AMapLocationListener,
         AMap.OnMarkerClickListener, AMap.InfoWindowAdapter, TextWatcher,
         PoiSearch.OnPoiSearchListener, InputtipsListener, TextView.OnEditorActionListener {
 
     private AMap mMap;
-
     private UiSettings uiSettings;
 
     private static final int STROKE_COLOR = Color.argb(180, 3, 145, 255);
@@ -108,24 +116,18 @@ public class MainActivity extends Activity implements View.OnClickListener, AMap
     private ImageButton ib_nav;
     private ImageButton ibt_busmode;
     private ImageButton btheat,btroadc;
-
+    private ImageButton imblogin;
     private Button searchbtn;
     private Button timesurebtn;
-
     private TextView timeText;
-
-    private RelativeLayout timePickerRl;
-
-
     private Marker locationMarker;
+    private LinearLayout bottomLayout;
 
     //声明AMapLocationClient类对象
     public AMapLocationClient mLocationClient = null;
 
     //声明mLocationOption对象
     public AMapLocationClientOption mLocationOption = null;
-
-
     private MyLocationStyle myLocationStyle;
 
     public SQLiteDatabase database;
@@ -151,11 +153,10 @@ public class MainActivity extends Activity implements View.OnClickListener, AMap
     private AlertDialog alertDialog;
     private AlertDialog mDialog;
     private TextView title;
-    private TimePicker timePicker;
 
 
     private Boolean btsate_use = false;
-    private Boolean btheat_use = false;
+    private Boolean islogin = false;
     private Boolean btroadc_use = false;
     private Boolean busmode_used = false;
     private int maptype;
@@ -163,90 +164,83 @@ public class MainActivity extends Activity implements View.OnClickListener, AMap
     private SQLdm s = new SQLdm();
     private SQLiteDatabase db;
 
+    private static final int BAIDU_READ_PHONE_STATE = 100;//定位权限请求
+    private static final int PRIVATE_CODE = 1315;//开启GPS权限
+    private LocationManager lm;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 
         super.onCreate(savedInstanceState);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         setContentView(R.layout.activity_main);
-        myRequetPermission();
         setUpMapIfNeeded();
         setupMap();
         getTime();
 
     }
 
-    private void myRequetPermission() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
-        }else {
-            //Toast.makeText(this,"您已经申请了权限!", Toast.LENGTH_SHORT).show();
-        }
 
+
+    /**
+     * 检测GPS、位置权限是否开启
+     */
+
+    public void showGPSContacts() {
+
+        //得到系统的位置服务，判断GPS是否激活
+        lm = (LocationManager) getSystemService(LOCATION_SERVICE);
+        boolean ok = lm.isProviderEnabled(LocationManager.GPS_PROVIDER);
+        if (ok) {//开了定位服务
+            if (Build.VERSION.SDK_INT >= 23) { //判断是否为android6.0系统版本，如果是，需要动态添加权限
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                        != PERMISSION_GRANTED) {// 没有权限，申请权限。
+                    ActivityCompat.requestPermissions(this, LOCATIONGPS, BAIDU_READ_PHONE_STATE);
+                } else {
+                    initLocation();//有权限，进行相应的处理
+                }
+            } else {
+                initLocation();//有权限，进行相应的处理
+            }
+        } else {
+            Toast.makeText(this, "系统检测到未开启GPS定位服务,请开启", Toast.LENGTH_SHORT).show();
+            Intent intent = new Intent();
+            intent.setAction(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+            startActivityForResult(intent, PRIVATE_CODE);
+        }
     }
 
+    /**
+     * Android6.0申请权限的回调方法
+     */
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-
-        if (requestCode == 1) {
-            for (int i = 0; i < permissions.length; i++) {
-                if (grantResults[i] == PERMISSION_GRANTED) {//选择了“始终允许”
-                    Toast.makeText(this, "" + "权限" + permissions[i] + "申请成功", Toast.LENGTH_SHORT).show();
+        switch (requestCode) {
+//             requestCode即所声明的权限获取码，在checkSelfPermission时传入
+            case BAIDU_READ_PHONE_STATE:
+                //如果用户取消，permissions可能为null.
+                if (grantResults[0] == PERMISSION_GRANTED && grantResults.length > 0) { //有权限
+                    // 获取到权限，作相应处理
+                    initLocation();//有权限，进行相应的处理
                 } else {
-                    if (!ActivityCompat.shouldShowRequestPermissionRationale(this, permissions[i])){//用户选择了禁止不再询问
+                    /*
+                     * 无权限
+                     * */
 
-                        AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
-                        builder.setTitle("permission")
-                                .setMessage("请授权应用相关权限")
-                                .setPositiveButton("去允许", new DialogInterface.OnClickListener() {
-                                    public void onClick(DialogInterface dialog, int id) {
-                                        if (mDialog != null && mDialog.isShowing()) {
-                                            mDialog.dismiss();
-                                        }
-                                        Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-                                        Uri uri = Uri.fromParts("package", getPackageName(), null);//注意就是"package",不用改成自己的包名
-                                        intent.setData(uri);
-                                        startActivityForResult(intent, NOT_NOTICE);
-                                    }
-                                });
-                        mDialog = builder.create();
-                        mDialog.setCanceledOnTouchOutside(false);
-                        mDialog.show();
-
-
-
-                    }else {//选择禁止
-                        AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
-                        builder.setTitle("permission")
-                                .setMessage("点击允许才可以使用我们的app哦")
-                                .setPositiveButton("去允许", new DialogInterface.OnClickListener() {
-                                    public void onClick(DialogInterface dialog, int id) {
-                                        if (alertDialog != null && alertDialog.isShowing()) {
-                                            alertDialog.dismiss();
-                                        }
-                                        ActivityCompat.requestPermissions(MainActivity.this,
-                                                new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
-                                      }
-                                });
-                        alertDialog = builder.create();
-                        alertDialog.setCanceledOnTouchOutside(false);
-                        alertDialog.show();
-                    }
+                    Toast.makeText(this, "你未开启定位权限!", Toast.LENGTH_SHORT).show();
 
                 }
-            }
+                break;
+            default:
+                break;
         }
     }
 
+    static final String[] LOCATIONGPS = new String[]{Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+    };
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if(requestCode==NOT_NOTICE){
-            myRequetPermission();//由于不知道是否选择了允许所以需要再次判断
-        }
-    }
 
 
     private void getTime() {
@@ -265,41 +259,19 @@ public class MainActivity extends Activity implements View.OnClickListener, AMap
         heatTime = heatHour + heatMinute;
     }
 
-
-    private void initDataAndHeatMap() {
-        if(count == 0) {
-            db =s.openDatabase(getApplicationContext());
-            Cursor cursor = db.rawQuery("select * from heat where timestamp like ?", new String[]{"%"+heatTime+"%"});
-            LatLng[] latlngs = new LatLng[cursor.getCount()];
-            Double latlng = 0.0;
-            Double longitude = 0.0;
-            cursor.moveToFirst();
-            for(int i = 0;i < cursor.getCount();i++){
-                latlng = cursor.getDouble(cursor.getColumnIndex("latitude"));
-                longitude = cursor.getDouble(cursor.getColumnIndex("longitude"));
-                latlngs[i] = new LatLng(latlng,longitude);
-                cursor.moveToNext();
-            }
-            cursor.close();
-
-            // 第二步： 构建热力图 TileProvider
-            HeatmapTileProvider.Builder builder = new HeatmapTileProvider.Builder();
-            builder.data(Arrays.asList(latlngs)) // 设置热力图绘制的数据
-                    .gradient(ALT_HEATMAP_GRADIENT); // 设置热力图渐变，有默认值 DEFAULT_GRADIENT，可不设置该接口
-            // Gradient 的设置可见参考手册
-            // 构造热力图对象
-            HeatmapTileProvider heatmapTileProvider = builder.build();
-
-            // 第三步： 构建热力图参数对象
-            TileOverlayOptions tileOverlayOptions = new TileOverlayOptions();
-            tileOverlayOptions.tileProvider(heatmapTileProvider); // 设置瓦片图层的提供者
-
-            // 第四步： 添加热力图
-            mMap.addTileOverlay(tileOverlayOptions);
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        //super.onActivityResult(requestCode, resultCode, data);
+        switch (requestCode) {
+            case 1:
+                if (resultCode == RESULT_OK) {
+                    islogin = true;
+                }
+                break;
+            default:
+                break;
         }
-
     }
-
 
     public void onClick(View v) {
         switch (v.getId()) {
@@ -315,19 +287,16 @@ public class MainActivity extends Activity implements View.OnClickListener, AMap
             case R.id.imbnow:
                 mMap.clear();
                 initLocation();
-                timePickerRl.setVisibility(View.GONE);
                 timeText.setVisibility(View.GONE);
                 if (mLocationClient != null) {
                     mLocationClient.startLocation();
                 }
                 ib_layer.setImageResource(R.drawable.layer);
-                btheat_use = false;
                 btheat.setImageResource(R.drawable.offheat);
 
                 break;
 
             case R.id.btn_search:
-                timePickerRl.setVisibility(View.GONE);
                 keyWord = AMapUtil.checkEditText(searchedit);
                 if ("".equals(keyWord)) {
                     ToastUtil.show(MainActivity.this, "请输入搜索关键字");
@@ -345,29 +314,14 @@ public class MainActivity extends Activity implements View.OnClickListener, AMap
                 break;
 
             case R.id.bt_heatmap:
-                if(!btheat_use){
-                    LatLng latLng = new LatLng(41.677287,123.465009);
-                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 10));
-                    initDataAndHeatMap();
-                    btheat.setImageResource(R.drawable.onheat);
-                    btheat_use = true;
-                    timePickerRl.setVisibility(View.VISIBLE);
-                    timeText.setVisibility(View.VISIBLE);
-                    timeText.setText(" " +heatHour + ":" + heatMinute +"  |  ⚙");
-                }else {
-                    mMap.clear();
-                    btheat.setImageResource(R.drawable.offheat);
-                    btheat_use = false;
-                    timePickerRl.setVisibility(View.GONE);
-                    timeText.setVisibility(View.GONE);
-                }
+                Intent intent = new Intent(this,HeatDate.class);
+                startActivity(intent);
                 break;
 
             case R.id.imblay:
                 if(!btsate_use){
                     mMap.setMapType(AMap.MAP_TYPE_SATELLITE);
                     ib_layer.setBackground(getResources().getDrawable(R.drawable.on_satemap));
-                    timePickerRl.setVisibility(View.GONE);
                     btsate_use = true;
                 }else{
                     mMap.setMapType(AMap.MAP_TYPE_NORMAL);
@@ -380,13 +334,11 @@ public class MainActivity extends Activity implements View.OnClickListener, AMap
                 if(!btroadc_use){
                     mMap.setTrafficEnabled(true);
                     btroadc.setImageResource(R.drawable.roadc_choosed);
-                    timePickerRl.setVisibility(View.GONE);
                     //timeText.setVisibility(View.GONE);
                     btroadc_use = true;
                 }else {
                     mMap.setTrafficEnabled(false);
                     btroadc.setImageResource(R.drawable.roadc_unchoose);
-                    timePickerRl.setVisibility(View.GONE);
                     btroadc_use = false;
                 }
                 break;
@@ -395,20 +347,22 @@ public class MainActivity extends Activity implements View.OnClickListener, AMap
                 if(!busmode_used){
                     mMap.setMapType(AMap.MAP_TYPE_BUS);
                     ibt_busmode.setBackground(getResources().getDrawable(R.drawable.onbusmode));
-                    timePickerRl.setVisibility(View.GONE);
                     busmode_used = true;
                 }else{
                     mMap.setMapType(maptype);
                     ibt_busmode.setBackground(getResources().getDrawable(R.drawable.offbusmode));
-                    timePickerRl.setVisibility(View.GONE);
                     busmode_used = false;
                 }
                 break;
-            case R.id.btntimesure:
-                mMap.clear();
-                initDataAndHeatMap();
-                timePickerRl.setVisibility(View.GONE);
-                timeText.setText(" "+heatHour + ":" + heatMinute +"  |  ⚙" );
+
+            case R.id.imblogin:
+                if (islogin){
+                    Intent toUser = new Intent(MainActivity.this, User.class);
+                    startActivity(toUser);
+                }else {
+                    Intent toLogin = new Intent(MainActivity.this, Login.class);
+                    startActivityForResult(toLogin,1);
+                }
                 break;
             default:
                 break;
@@ -421,47 +375,27 @@ public class MainActivity extends Activity implements View.OnClickListener, AMap
         ib_layer = (ImageButton) findViewById(R.id.imblay);
         ib_nav = (ImageButton) findViewById(R.id.imbnav);
         ib_now = (ImageButton) findViewById(R.id.imbnow);
-        btheat = (ImageButton)findViewById(R.id.bt_heatmap);
-        btroadc = (ImageButton)findViewById(R.id.btnroadc_new);
-        ibt_busmode = (ImageButton)findViewById(R.id.ibtbusmode);
+        btheat = (ImageButton) findViewById(R.id.bt_heatmap);
+        btroadc = (ImageButton) findViewById(R.id.btnroadc_new);
+        ibt_busmode = (ImageButton) findViewById(R.id.ibtbusmode);
         searchedit = (AutoCompleteTextView) findViewById(R.id.input_edittext);
-        searchbtn = (Button)findViewById(R.id.btn_search);
-        timesurebtn = (Button)findViewById(R.id.btntimesure);
-        timePicker = (TimePicker)findViewById(R.id.timepicker);
-        timePickerRl = (RelativeLayout)findViewById(R.id.timepickerll);
-        timeText = (TextView)findViewById(R.id.time_text);
+        searchbtn = (Button) findViewById(R.id.btn_search);
+        imblogin = (ImageButton)findViewById(R.id.imblogin);
+
 
         ib_now.setOnClickListener(this);
         ib_nav.setOnClickListener(this);
         ib_layer.setOnClickListener(this);
         ibt_busmode.setOnClickListener(this);
+        imblogin.setOnClickListener(this);
         btheat.setOnClickListener(this);
         btroadc.setOnClickListener(this);
-        timesurebtn.setOnClickListener(this);
         searchedit.setOnClickListener(this);
         searchbtn.setOnClickListener(this);
         searchedit.addTextChangedListener(this);
         searchedit.setOnEditorActionListener(this);
         mMap.setOnMarkerClickListener(this);// 添加点击marker监听事件
         mMap.setInfoWindowAdapter(this);// 添加显示infowindow监听事件
-        timePicker.setOnTimeChangedListener(new TimePicker.OnTimeChangedListener() {
-            @Override
-            public void onTimeChanged(TimePicker timePicker, int hour, int minute) { //时间选择器变化
-                if (hour < 10){
-                    heatHour = "0" + String.valueOf(hour);
-                }else {
-                    heatHour = String.valueOf(hour);
-                }
-                if (minute < 10){
-                    heatMinute ="0" + String.valueOf(minute);
-                }else {
-                    heatMinute = String.valueOf(minute);
-                }
-
-                heatTime = heatHour + heatMinute;
-            }
-        });
-        //timePicker.setDescendantFocusability(TimePicker.FOCUS_BLOCK_DESCENDANTS);
 
         uiSettings = mMap.getUiSettings();
         uiSettings.setZoomControlsEnabled(false);
@@ -469,11 +403,7 @@ public class MainActivity extends Activity implements View.OnClickListener, AMap
         mMap.showIndoorMap(true);
         maptype = mMap.getMapType();
 
-        //首次执行导入.db文件
-
-
     }
-
     /**
      * 开始进行poi搜索
      */
@@ -553,7 +483,7 @@ public class MainActivity extends Activity implements View.OnClickListener, AMap
         StatusBarUtil.setRootViewFitsSystemWindows(this, false);
 
         init();
-        initLocation();
+        showGPSContacts();
         if (mLocationClient != null) {
             mLocationClient.startLocation();
         }
@@ -567,7 +497,6 @@ public class MainActivity extends Activity implements View.OnClickListener, AMap
         //设置定位模式
         myLocationStyle = new MyLocationStyle();
         myLocationStyle.myLocationType(MyLocationStyle.LOCATION_TYPE_LOCATION_ROTATE);
-
         //初始化定位
         mLocationClient = new AMapLocationClient(getApplicationContext());
         //设置定位回调监听
@@ -810,6 +739,11 @@ public class MainActivity extends Activity implements View.OnClickListener, AMap
 
 
     public void timeSet(View view) {
-        timePickerRl.setVisibility(View.VISIBLE);
+    }
+
+    public static void startMainActivity(Context context,boolean isloginl){
+        Intent intent = new Intent(context,MainActivity.class);
+        intent.putExtra("islogin",isloginl);
+        context.startActivity(intent);
     }
 }

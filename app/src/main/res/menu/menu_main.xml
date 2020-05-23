@@ -1,12 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<menu xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
-    tools:context="com.map.mymap.search.SearchOnToolBarActivity">
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
     <item
-        android:id="@+id/ab_search"
-        android:orderInCategory="80"
-        android:title="搜帖"
-        app:actionViewClass="androidx.appcompat.widget.SearchView"
-    app:showAsAction="ifRoom"/>
+        android:title="首页"/>
+    <item
+        android:title="热力数据"/>
+    <item
+        android:title="我的"/>
 </menu>

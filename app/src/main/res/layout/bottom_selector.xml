@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/shape_inform"
+    android:padding="5dp">
+
+    <TextView
+        android:id="@+id/text_map"
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="wrap_content"
+        android:text="地图"
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:textSize="15sp"
+        android:clickable="true"
+        android:layout_margin="5dp" />
+
+
+    <TextView
+        android:id="@+id/text_heat"
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="wrap_content"
+        android:text="热力数据"
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:textSize="15sp"
+        android:layout_margin="5dp"
+        android:clickable="true" />
+
+
+
+
+</LinearLayout>

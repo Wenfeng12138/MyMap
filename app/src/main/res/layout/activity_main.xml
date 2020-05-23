@@ -4,6 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    tools:menu="@menu/menu_main"
     tools:context=".MainActivity">
 
     <include
@@ -31,6 +32,10 @@
         app:layout_constraintTop_toBottomOf="@id/barview"
         android:gravity="center_vertical"
         android:orientation="horizontal" >
+
+
+
+
 
         <Button
             android:id="@+id/btn_search"
@@ -184,73 +189,52 @@
         android:id="@+id/imb"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        app:layout_constraintBottom_toBottomOf="@+id/include"
-        app:layout_constraintRight_toRightOf="parent"
-        android:layout_margin="5dp">
+        android:layout_margin="5dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintRight_toRightOf="parent">
 
         <ImageButton
             android:id="@+id/imblay"
             android:layout_width="50dp"
             android:layout_height="50dp"
+            android:layout_marginRight="5dp"
             android:background="@drawable/layer"
             android:baselineAlignBottom="true"
-            android:scaleType="fitXY"
-            android:layout_marginRight="5dp"/>
+            android:scaleType="fitXY" />
 
         <ImageButton
             android:id="@+id/imbnav"
             android:layout_width="50dp"
             android:layout_height="50dp"
+            android:layout_marginRight="5dp"
             android:background="@drawable/navigation"
             android:baselineAlignBottom="true"
-            android:scaleType="fitXY"
-            android:layout_marginRight="5dp"/>
+            android:scaleType="fitXY" />
 
         <ImageButton
             android:id="@+id/imbnow"
             android:layout_width="50dp"
             android:layout_height="50dp"
+            android:layout_marginRight="5dp"
             android:background="@drawable/now"
             android:baselineAlignBottom="true"
-            android:scaleType="fitXY"
-            android:layout_marginRight="5dp"/>
+            android:scaleType="fitXY" />
+
+        <ImageButton
+            android:id="@+id/imblogin"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:layout_marginRight="5dp"
+            android:background="@drawable/login"
+            android:baselineAlignBottom="true"
+            android:scaleType="fitXY" />
 
 
     </LinearLayout>
 
-    <RelativeLayout
-        android:id="@+id/timepickerll"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_margin="@dimen/standard_mergin"
-        android:orientation="horizontal"
-        android:background="@drawable/shape_inform"
-        android:visibility="invisible"
-        app:layout_constraintBottom_toBottomOf="@id/imb">
 
-        <Button
-            android:id="@+id/btntimesure"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_below="@+id/timepicker"
-            android:layout_marginTop="@dimen/standard_mergin"
-            android:text="确定"
-            android:textSize="20sp"
-            android:textColor="@color/white"
-            android:textStyle="bold"
-            android:background="@drawable/shape"
-            />
 
-        <TimePicker
-            android:id="@+id/timepicker"
-            android:background="@color/white"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:timePickerMode="spinner">
 
-        </TimePicker>
-
-    </RelativeLayout>
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>
